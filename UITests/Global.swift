@@ -180,7 +180,7 @@ extension KIFUITestActor {
 
         var result = webView.stringByEvaluatingJavaScriptFromString("typeof KIFHelper")
         if result == "undefined" {
-                let bundle = NSBundle(forClass: NavigationTests.self)
+                let bundle = NSBundle(forClass: PrivateBrowsingTests.self)
                 let path = bundle.pathForResource("KIFHelper", ofType: "js")!
                 let source = try! NSString(contentsOfFile: path, encoding: NSUTF8StringEncoding)
                 webView.stringByEvaluatingJavaScriptFromString(source as String)
@@ -235,7 +235,7 @@ class BrowserUtils {
         // since a new about:home tab will be selected.
         if let cell = tabsView.cellForItemAtIndexPath(NSIndexPath(forItem: 0, inSection: 0)) {
             tester.swipeViewWithAccessibilityLabel(cell.accessibilityLabel, inDirection: KIFSwipeDirection.Left)
-            tester.waitForTappableViewWithAccessibilityLabel("Show Tabs")
+            //tester.waitForTappableViewWithAccessibilityLabel("Show Tabs")
         }
     }
 
