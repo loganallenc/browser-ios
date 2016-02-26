@@ -167,10 +167,12 @@ class CookieSetting: Setting, PicklistSettingDelegate {
         super.init(title: NSAttributedString(string: heading, attributes: [NSForegroundColorAttributeName: UIConstants.TableViewRowTextColor]))
     }
 
+    var cookiePickList: PicklistSetting? // on iOS8 there is a crash, seems like it requires this to be retained
     override func onClick(navigationController: UINavigationController?) {
-        let viewController = PicklistSetting(options: CookieSetting.getOptions(), title: heading)
-        navigationController?.pushViewController(viewController, animated: true)
-        viewController.delegate = self
+        let current = BraveApp.getPref(CookieSetting.prefAcceptCookies) as? Int ?? 0
+        cookiePickList = PicklistSetting(options: CookieSetting.getOptions(), title: heading, current: current)
+        navigationController?.pushViewController(cookiePickList!, animated: true)
+        cookiePickList!.delegate = self
     }
 
     func picklistSetting(setting: PicklistSetting, pickedIndex: Int) {

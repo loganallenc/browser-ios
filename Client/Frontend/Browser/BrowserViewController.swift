@@ -13,6 +13,7 @@ import XCGLogger
 import Alamofire
 import Account
 import ReadingList
+import MobileCoreServices
 
 private let log = Logger.browserLogger
 
@@ -43,7 +44,7 @@ class BrowserViewController: UIViewController {
     private var searchController: SearchViewController?
     let uriFixup = URIFixup()
     private var screenshotHelper: ScreenshotHelper!
-    var homePanelIsInline = false
+    var homePanelIsInline = true
     private var searchLoader: SearchLoader!
     let snackBars = UIView()
     private let webViewContainerToolbar = UIView()
@@ -117,13 +118,16 @@ class BrowserViewController: UIViewController {
 
     override func viewWillTransitionToSize(size: CGSize, withTransitionCoordinator coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransitionToSize(size, withTransitionCoordinator: coordinator)
-        displayedPopoverController?.dismissViewControllerAnimated(true, completion: nil)
+
+        guard let displayedPopoverController = self.displayedPopoverController where displayedPopoverController.isBeingPresented() else {
+            return
+        }
+
+        displayedPopoverController.dismissViewControllerAnimated(true, completion: nil)
 
         coordinator.animateAlongsideTransition(nil) { context in
-            if let displayedPopoverController = self.displayedPopoverController {
-                self.updateDisplayedPopoverProperties?()
-                self.presentViewController(displayedPopoverController, animated: true, completion: nil)
-            }
+            self.updateDisplayedPopoverProperties?()
+            self.presentViewController(displayedPopoverController, animated: true, completion: nil)
         }
     }
 
@@ -223,6 +227,10 @@ class BrowserViewController: UIViewController {
         }
     }
 
+    func SELappDidEnterBackgroundNotification() {
+        displayedPopoverController?.dismissViewControllerAnimated(false, completion: nil)
+    }
+
     func SELtappedTopArea() {
         scrollController.showToolbars(animated: true)
     }
@@ -255,6 +263,7 @@ class BrowserViewController: UIViewController {
         NSNotificationCenter.defaultCenter().removeObserver(self, name: BookmarkStatusChangedNotification, object: nil)
         NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationWillResignActiveNotification, object: nil)
         NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationWillEnterForegroundNotification, object: nil)
+        NSNotificationCenter.defaultCenter().removeObserver(self, name: UIApplicationDidEnterBackgroundNotification, object: nil)
     }
 
     override func viewDidLoad() {
@@ -264,6 +273,7 @@ class BrowserViewController: UIViewController {
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "SELBookmarkStatusDidChange:", name: BookmarkStatusChangedNotification, object: nil)
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "SELappWillResignActiveNotification", name: UIApplicationWillResignActiveNotification, object: nil)
         NSNotificationCenter.defaultCenter().addObserver(self, selector: "SELappDidBecomeActiveNotification", name: UIApplicationDidBecomeActiveNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "SELappDidEnterBackgroundNotification", name: UIApplicationDidEnterBackgroundNotification, object: nil)
         KeyboardHelper.defaultHelper.addDelegate(self)
 
         log.debug("BVC adding footer and header…")
@@ -537,14 +547,17 @@ class BrowserViewController: UIViewController {
         super.viewDidAppear(animated)
         log.debug("BVC done.")
 
-        let appVersion = AppInfo.appVersion
-        if profile.prefs.stringForKey("latestAppVersion") != appVersion && DeviceInfo.hasConnectivity() {
+        if profile.prefs.stringForKey(LatestAppVersionProfileKey) != AppInfo.appVersion && DeviceInfo.hasConnectivity() {
             if let whatsNewURL = SupportUtils.URLForTopic("new-ios") {
                 self.openURLInNewTab(whatsNewURL)
-                profile.prefs.setString(appVersion, forKey: "latestAppVersion")
+                profile.prefs.setString(AppInfo.appVersion, forKey: LatestAppVersionProfileKey)
             }
         }
 
+        showQueuedAlertIfAvailable()
+    }
+
+    private func showQueuedAlertIfAvailable() {
         if var queuedAlertInfo = tabManager.selectedTab?.dequeueJavascriptAlertPrompt() {
             let alertController = queuedAlertInfo.alertController()
             alertController.delegate = self
@@ -655,6 +668,11 @@ class BrowserViewController: UIViewController {
     private func showHomePanelController(inline inline: Bool) {
         log.debug("BVC showHomePanelController.")
         homePanelIsInline = inline
+
+        #if BRAVE
+            // we always want to show the bottom toolbar, if this is false, the bottom toolbar is hidden
+            homePanelIsInline = true
+        #endif
 
         if homePanelController == nil {
             homePanelController = HomePanelViewController()
@@ -961,8 +979,9 @@ class BrowserViewController: UIViewController {
     }
 
     func switchToTabForURLOrOpen(url: NSURL) {
-        popToBrowser()
-        if let tab = tabManager.getTabForURL(url) {
+        let tab = tabManager.getTabForURL(url)
+        popToBrowser(tab)
+        if let tab = tab {
             tabManager.selectTab(tab)
         } else {
             openURLInNewTab(url)
@@ -996,14 +1015,16 @@ class BrowserViewController: UIViewController {
         urlBar.browserLocationViewDidTapLocation(urlBar.locationView)
     }
 
-    private func popToBrowser() {
-        guard let currentViewController = navigationController?.topViewController,
-            let presentedViewController = currentViewController.presentedViewController else {
+    private func popToBrowser(forTab: Browser? = nil) {
+        guard let currentViewController = navigationController?.topViewController else {
                 return
         }
-        
-        presentedViewController.dismissViewControllerAnimated(false, completion: nil)
-        if currentViewController != self {
+        if let presentedViewController = currentViewController.presentedViewController {
+            presentedViewController.dismissViewControllerAnimated(false, completion: nil)
+        }
+        // if a tab already exists and the top VC is not the BVC then pop the top VC, otherwise don't.
+        if currentViewController != self,
+            let _ = forTab {
             self.navigationController?.popViewControllerAnimated(true)
         }
     }
@@ -1052,13 +1073,18 @@ class BrowserViewController: UIViewController {
 
         let helper = ShareExtensionHelper(url: url, tab: tab, activities: activities)
 
-        let controller = helper.createActivityViewController({ [unowned self] in
-            // We don't know what share action the user has chosen so we simply always
-            // update the toolbar and reader mode bar to reflect the latest status.
-            if let tab = tab {
-                self.updateURLBarDisplayURL(tab)
+        let controller = helper.createActivityViewController({ [unowned self] completed in
+            // After dismissing, check to see if there were any prompts we queued up
+            self.showQueuedAlertIfAvailable()
+
+            if completed {
+                // We don't know what share action the user has chosen so we simply always
+                // update the toolbar and reader mode bar to reflect the latest status.
+                if let tab = tab {
+                    self.updateURLBarDisplayURL(tab)
+                }
+                self.updateReaderModeBar()
             }
-            self.updateReaderModeBar()
         })
 
         let setupPopover = { [unowned self] in
@@ -1473,6 +1499,8 @@ extension BrowserViewController: BrowserDelegate {
     }
 
     func browser(browser: Browser, willDeleteWebView webView: BraveWebView) {
+        browser.cancelQueuedAlerts()
+
         webView.removeObserver(self, forKeyPath: KVOEstimatedProgress)
         webView.removeObserver(self, forKeyPath: KVOLoading)
         webView.removeObserver(self, forKeyPath: KVOCanGoBack)
@@ -1922,9 +1950,9 @@ extension BrowserViewController: WKNavigationDelegate {
       
         tabManager.expireSnackbars()
 
-        if let url = webView.URL where !ErrorPageHelper.isErrorPageURL(url) && !AboutUtils.isAboutHomeURL(url) {
-            tab.lastExecutedTime = NSDate.now()
+        tab.lastExecutedTime = NSDate.now()
 
+        if let url = webView.URL where !ErrorPageHelper.isErrorPageURL(url) && !AboutUtils.isAboutHomeURL(url) {
             if navigation == nil {
                 log.warning("Implicitly unwrapped optional navigation was nil.")
             }
@@ -2028,9 +2056,14 @@ extension BrowserViewController: WKUIDelegate {
     }
 #endif
 #if !BRAVE
+    private func canDisplayJSAlertForWebView(webView: WKWebView) -> Bool {
+        // Only display a JS Alert if we are selected and there isn't anything being shown
+        return (tabManager.selectedTab?.webView == webView ?? false) && (self.presentedViewController == nil)
+    }
+
     func webView(webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: () -> Void) {
         var messageAlert = MessageAlert(message: message, frame: frame, completionHandler: completionHandler)
-        if tabManager.selectedTab?.webView == webView {
+        if canDisplayJSAlertForWebView(webView) {
             presentViewController(messageAlert.alertController(), animated: true, completion: nil)
         } else if let promptingTab = tabManager[webView] {
             promptingTab.queueJavascriptAlertPrompt(messageAlert)
@@ -2044,7 +2077,7 @@ extension BrowserViewController: WKUIDelegate {
 #if !BRAVE
     func webView(webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: (Bool) -> Void) {
         var confirmAlert = ConfirmPanelAlert(message: message, frame: frame, completionHandler: completionHandler)
-        if tabManager.selectedTab?.webView == webView {
+        if canDisplayJSAlertForWebView(webView) {
             presentViewController(confirmAlert.alertController(), animated: true, completion: nil)
         } else if let promptingTab = tabManager[webView] {
             promptingTab.queueJavascriptAlertPrompt(confirmAlert)
@@ -2056,7 +2089,7 @@ extension BrowserViewController: WKUIDelegate {
 #if !BRAVE
     func webView(webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: (String?) -> Void) {
         var textInputAlert = TextInputAlert(message: prompt, frame: frame, completionHandler: completionHandler, defaultText: defaultText)
-        if tabManager.selectedTab?.webView == webView {
+        if canDisplayJSAlertForWebView(webView) {
             presentViewController(textInputAlert.alertController(), animated: true, completion: nil)
         } else if let promptingTab = tabManager[webView] {
             promptingTab.queueJavascriptAlertPrompt(textInputAlert)
@@ -2508,12 +2541,10 @@ extension BrowserViewController: ContextMenuHelperDelegate {
         var dialogTitle: String?
         actionSheetController.view.tag = BraveWebView.kContextMenuBlockNavigation
 
-        let maxTabsReached = getApp().tabManager.tabCount >= kMaxTabs
-
         if let url = elements.link, currentTab = tabManager.selectedTab {
             dialogTitle = url.absoluteString
             let isPrivate = currentTab.isPrivate
-            if !isPrivate && !maxTabsReached {
+            if !isPrivate {
                 let newTabTitle = NSLocalizedString("Open In New Tab", comment: "Context menu item for opening a link in a new tab")
                 let openNewTabAction =  UIAlertAction(title: newTabTitle, style: UIAlertActionStyle.Default) { (action: UIAlertAction) in
                     actionSheetController.view.tag = 0 // BRAVE: clear this to allow navigation
@@ -2795,10 +2826,6 @@ extension BrowserViewController: FindInPageBarDelegate, FindInPageHelperDelegate
 
 extension BrowserViewController: JSPromptAlertControllerDelegate {
     func promptAlertControllerDidDismiss(alertController: JSPromptAlertController) {
-        if var queuedAlertInfo = tabManager.selectedTab?.dequeueJavascriptAlertPrompt() {
-            let alertController = queuedAlertInfo.alertController()
-            alertController.delegate = self
-            presentViewController(alertController, animated: true, completion: nil)
-        }
+        showQueuedAlertIfAvailable()
     }
 }

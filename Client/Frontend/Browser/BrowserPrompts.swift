@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import WebKit
 
 @objc protocol JSPromptAlertControllerDelegate: class {
     func promptAlertControllerDidDismiss(alertController: JSPromptAlertController)
@@ -42,6 +43,7 @@ protocol JSAlertInfo {
      */
     mutating func alertController() -> JSPromptAlertController
     func alertWillDismiss()
+    func cancel()
 }
 
 struct MessageAlert: JSAlertInfo {
@@ -59,6 +61,10 @@ struct MessageAlert: JSAlertInfo {
     }
 
     func alertWillDismiss() {
+        completionHandler()
+    }
+
+    func cancel() {
         completionHandler()
     }
 }
@@ -89,6 +95,10 @@ struct ConfirmPanelAlert: JSAlertInfo {
 
     func alertWillDismiss() {
         completionHandler(didConfirm)
+    }
+
+    func cancel() {
+        completionHandler(false)
     }
 }
 
@@ -121,6 +131,10 @@ struct TextInputAlert: JSAlertInfo {
 
     func alertWillDismiss() {
         completionHandler(input.text)
+    }
+
+    func cancel() {
+        completionHandler(nil)
     }
 }
 

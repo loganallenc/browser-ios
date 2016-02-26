@@ -112,8 +112,8 @@ class Browser: NSObject, BrowserWebViewDelegate {
 
     func createWebview() {
         if webView == nil {
-            assert(configuration != nil, "Create webview can only be called once")
 #if !BRAVE
+            assert(configuration != nil, "Create webview can only be called once")
             configuration!.userContentController = WKUserContentController()
             configuration!.preferences = WKPreferences()
             configuration!.preferences.javaScriptCanOpenWindowsAutomatically = false
@@ -138,9 +138,12 @@ class Browser: NSObject, BrowserWebViewDelegate {
             self.webView = webView
             browserDelegate?.browser(self, didCreateWebView: self.webView!)
 
+#if !BRAVE
             // lastTitle is used only when showing zombie tabs after a session restore.
             // Since we now have a web view, lastTitle is no longer useful.
             lastTitle = nil
+#endif
+            lastExecutedTime = NSDate.now()
         }
     }
 
@@ -153,7 +156,7 @@ class Browser: NSObject, BrowserWebViewDelegate {
             #if !BRAVE // no idea why restoring is needed, but it causes the displayed url not to update, which is bad
                 restoring = true
             #endif
-
+            lastTitle = sessionData.currentTitle
             var updatedURLs = [String]()
             for url in sessionData.urls {
                 let updatedURL = WebServer.sharedInstance.updateLocalURL(url)!.absoluteString
@@ -175,10 +178,27 @@ class Browser: NSObject, BrowserWebViewDelegate {
         }
     }
 
-    deinit {
+    func deleteWebView() {
         if let webView = webView {
+            lastTitle = title
+            let currentItem: LegacyBackForwardListItem! = webView.backForwardList.currentItem
+            // Freshly created web views won't have any history entries at all.
+            // If we have no history, abort.
+            if currentItem != nil {
+                let backList = webView.backForwardList.backList ?? []
+                let forwardList = webView.backForwardList.forwardList ?? []
+                let urls = (backList + [currentItem] + forwardList).map { $0.URL }
+                let currentPage = -forwardList.count
+                self.sessionData = SessionData(currentPage: currentPage, currentTitle: title, urls: urls, lastUsedTime: lastExecutedTime ?? NSDate.now())
+            }
             browserDelegate?.browser(self, willDeleteWebView: webView)
+            webView.destroy()
+            self.webView = nil
         }
+    }
+
+    deinit {
+        deleteWebView()
     }
 
     var loading: Bool {
@@ -209,12 +229,15 @@ class Browser: NSObject, BrowserWebViewDelegate {
     }
 
     var displayTitle: String {
-        if let title = webView?.title {
-            if !title.isEmpty {
-                return title
-            }
+        if let title = webView?.title where !title.isEmpty {
+            return title
         }
-        return displayURL?.absoluteString ?? lastTitle ?? ""
+
+        if let lastTitle = lastTitle where !lastTitle.isEmpty {
+            return lastTitle
+        }
+
+        return displayURL?.absoluteString ?? ""
     }
 
     var currentInitialURL: NSURL? {
@@ -419,6 +442,12 @@ class Browser: NSObject, BrowserWebViewDelegate {
             return nil
         }
         return alertQueue.removeFirst()
+    }
+
+    func cancelQueuedAlerts() {
+        alertQueue.forEach { alert in
+            alert.cancel()
+        }
     }
 
     private func browserWebView(browserWebView: BrowserWebView, didSelectFindInPageForSelection selection: String) {

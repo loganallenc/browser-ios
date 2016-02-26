@@ -52,12 +52,15 @@ class Setting {
 
     var accessoryType: UITableViewCellAccessoryType { return .None }
 
+    var textAlignment: NSTextAlignment { return .Left }
+    
     private(set) var enabled: Bool = true
 
     // Called when the cell is setup. Call if you need the default behaviour.
     func onConfigureCell(cell: UITableViewCell) {
         cell.detailTextLabel?.attributedText = status
         cell.textLabel?.attributedText = title
+        cell.textLabel?.textAlignment = textAlignment
         cell.accessoryType = accessoryType
         cell.accessoryView = nil
         cell.selectionStyle = enabled ? .Default : .None
@@ -241,7 +244,7 @@ class SettingsTableViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         tableView.registerClass(SettingsTableViewCell.self, forCellReuseIdentifier: Identifier)
         tableView.registerClass(SettingsTableSectionHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: SectionHeaderIdentifier)
         #if BRAVE
@@ -302,7 +305,7 @@ class SettingsTableViewController: UITableViewController {
         }
     }
 
-    @objc private func SELfirefoxAccountDidChange() {
+    @objc func SELfirefoxAccountDidChange() {
         self.tableView.reloadData()
     }
 
@@ -423,13 +426,13 @@ class SettingsTableSectionHeaderFooterView: UITableViewHeaderFooterView {
                 case .Top:
                     titleLabel.snp_remakeConstraints { make in
                         make.left.equalTo(self).offset(SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
-                        make.right.greaterThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
+                        make.right.lessThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
                         make.top.equalTo(self).offset(SettingsTableSectionHeaderFooterViewUX.titleVerticalPadding)
                     }
                 case .Bottom:
                     titleLabel.snp_remakeConstraints { make in
                         make.left.equalTo(self).offset(SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
-                        make.right.greaterThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
+                        make.right.lessThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
                         make.bottom.equalTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleVerticalPadding)
                     }
                 }
@@ -487,7 +490,7 @@ class SettingsTableSectionHeaderFooterView: UITableViewHeaderFooterView {
         // Initially set title to the bottom
         titleLabel.snp_makeConstraints { make in
             make.left.equalTo(self).offset(SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
-            make.right.greaterThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
+            make.right.lessThanOrEqualTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleHorizontalPadding)
             make.bottom.equalTo(self).offset(-SettingsTableSectionHeaderFooterViewUX.titleVerticalPadding)
         }
 

@@ -4,7 +4,9 @@
 
 import Foundation
 import XCGLogger
+import Deferred
 import Shared
+import Deferred
 
 public let NotificationDatabaseWasRecreated = "NotificationDatabaseWasRecreated"
 
@@ -234,6 +236,9 @@ public class BrowserDB {
     func withConnection<T>(flags flags: SwiftData.Flags, inout err: NSError?, callback: (connection: SQLiteDBConnection, inout err: NSError?) -> T) -> T {
         var res: T!
         err = db.withConnection(flags) { connection in
+            // This should never occur. Make it fail hard in debug builds.
+            assert(!(connection is FailedSQLiteDBConnection))
+
             var err: NSError? = nil
             res = callback(connection: connection, err: &err)
             return err

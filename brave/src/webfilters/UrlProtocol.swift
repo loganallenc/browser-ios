@@ -12,6 +12,8 @@ class URLProtocol: NSURLProtocol {
     var mutableData: NSMutableData!
     var response: NSURLResponse!
 
+    static var suffixBlockedUrl = "_b_l_o_c_k_e_d_"
+
     override class func canInitWithRequest(request: NSURLRequest) -> Bool {
         if (BraveApp.isBraveButtonBypassingFilters) {
             return false
@@ -41,10 +43,14 @@ class URLProtocol: NSURLProtocol {
     }
 
     override class func canonicalRequestForRequest(request: NSURLRequest) -> NSURLRequest {
+
         if (TrackingProtection.singleton.shouldBlock(request) || AdBlocker.singleton.shouldBlock(request)) {
             let newRequest = cloneRequest(request)
-            // the minimum I can return without a crash is this url. NSURL() or NSURL("") will crash.
-            newRequest.URL = NSURL(string:"https://")
+            if let url = request.URL {
+                // Note CFURLCopyScheme crash if the url value is nil or "" or modified host like: "https://blocked_\(host)\(path)
+                // Just add a sentinel suffix, and returnEmptyResponse() if seen later
+                newRequest.URL = NSURL(string:url.absoluteString + suffixBlockedUrl)
+            }
             return newRequest
         }
 
@@ -76,10 +82,27 @@ class URLProtocol: NSURLProtocol {
         return newRequest
     }
 
+    func returnEmptyResponse() {
+        // To block the load nicely, return an empty result to the client.
+        // Nice => UIWebView's isLoading property gets set to false
+        // Not nice => isLoading stays true while page waits for blocked items that never arrive
+
+        // IIRC expectedContentLength of 0 is buggy (can't find the reference now).
+        guard let url = request.URL else { return }
+        let response = NSURLResponse(URL: url, MIMEType: "text/html", expectedContentLength: 1, textEncodingName: "utf-8")
+        client?.URLProtocol(self, didReceiveResponse: response, cacheStoragePolicy: .NotAllowed)
+        client?.URLProtocol(self, didLoadData: NSData())
+        client?.URLProtocolDidFinishLoading(self)
+    }
+
     override func startLoading() {
         let newRequest = URLProtocol.cloneRequest(request)
         NSURLProtocol.setProperty(true, forKey: markerRequestHandled, inRequest: newRequest)
         self.connection = NSURLConnection(request: newRequest, delegate: self)
+
+        if request.URL?.absoluteString.endsWith(URLProtocol.suffixBlockedUrl) ?? false {
+            returnEmptyResponse()
+        }
     }
 
     override func stopLoading() {

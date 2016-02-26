@@ -123,7 +123,7 @@ class NetworkDataFileLoader {
             Alamofire.request(.HEAD, self.dataUrl).response {
                 request, response, data, error in
                 if let err = error {
-                    print("\(err.localizedDescription)")
+                    print("\(err)")
                 } else {
                     guard let etag = response?.allHeaderFields["Etag"] as? String else { return }
                     let etagOnDisk = self.readDataEtag()

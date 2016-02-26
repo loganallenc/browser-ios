@@ -11,11 +11,13 @@ class PicklistSetting: UITableViewController {
     var options = [String]()
     var headerTitle = ""
     var delegate: PicklistSettingDelegate?
+    var initialIndex = -1
 
-    convenience init(options: [String], title: String) {
+    convenience init(options: [String], title: String, current: Int) {
         self.init(style: UITableViewStyle.Grouped)
         self.options = options
         self.headerTitle = title
+        self.initialIndex = current
     }
 
     override init(style: UITableViewStyle) {
@@ -30,6 +32,9 @@ class PicklistSetting: UITableViewController {
         var cell: UITableViewCell!
         cell = UITableViewCell(style: UITableViewCellStyle.Default, reuseIdentifier: nil)
         cell.textLabel?.text = options[indexPath.row]
+        if initialIndex == indexPath.row {
+            cell.accessoryType = .Checkmark
+        }
         return cell
     }
 

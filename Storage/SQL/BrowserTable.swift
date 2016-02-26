@@ -528,7 +528,6 @@ public class BrowserTable: Table {
         let indices = AllIndices.map { "DROP INDEX IF EXISTS \($0)" }
         let tables = AllTables.map { "DROP TABLE IF EXISTS \($0)" }
         let queries = Array([views, indices, tables, additional].flatten())
-
         return self.run(db, queries: queries)
     }
 }

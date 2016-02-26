@@ -48,6 +48,10 @@ class TrackingProtection {
                 return false
         }
 
+        if request.mainDocumentURL?.absoluteString.startsWith(WebServer.sharedInstance.base) ?? false {
+            return false
+        }
+
         // https://github.com/brave/browser-ios/issues/90
         if url.absoluteString.contains("connect.facebook.com") {
             return false

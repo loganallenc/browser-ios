@@ -1,3 +1,4 @@
+(cd ../../ && ./checkout.sh)
 (cd .. && ./setup.sh)
 [[ -e /usr/local/bin/ios ]] || gem install cupertino
 (cd profiles && sh install-adhoc-profiles-from-portal.sh $1 $2) || exit 1 

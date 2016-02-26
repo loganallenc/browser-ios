@@ -1,17 +1,18 @@
- /* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- import Foundation
- import Shared
- import CoreSpotlight
- import WebKit
+import Foundation
+import Shared
+import CoreSpotlight
+import MobileCoreServices
+import WebKit
 
 
- private let log = Logger.browserLogger
- private let browsingActivityType: String = "org.mozilla.ios.firefox.browsing"
+private let log = Logger.browserLogger
+private let browsingActivityType: String = "org.mozilla.ios.firefox.browsing"
 
- class SpotlightHelper: NSObject {
+class SpotlightHelper: NSObject {
     private(set) var activity: NSUserActivity? {
         willSet {
             activity?.invalidate()
@@ -47,10 +48,6 @@
     }
 
     func update(pageContent: [String: String], forURL url: NSURL) {
-        if !url.scheme.startsWith("http") {
-            return
-        }
-        
         if AboutUtils.isAboutURL(url) || url.scheme == "about" {
             return
         }
@@ -110,17 +107,17 @@
     func createUserActivity() -> NSUserActivity {
         return NSUserActivity(activityType: browsingActivityType)
     }
- }
+}
 
- extension SpotlightHelper: NSUserActivityDelegate {
+extension SpotlightHelper: NSUserActivityDelegate {
     @objc func userActivityWasContinued(userActivity: NSUserActivity) {
         if let url = userActivity.webpageURL {
             createNewTab?(url: url)
         }
     }
- }
+}
 
- extension SpotlightHelper: BrowserHelper {
+extension SpotlightHelper: BrowserHelper {
     static func name() -> String {
         return "SpotlightHelper"
     }
@@ -136,4 +133,4 @@
                 update(payload, forURL: url)
         }
     }
- }
+}

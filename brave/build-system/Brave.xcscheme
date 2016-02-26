@@ -38,48 +38,6 @@
                ReferencedContainer = "container:Client.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F84B21D21A090F8100AAB793"
-               BuildableName = "FennecAurora.xctest"
-               BlueprintName = "ClientTests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D39FA15E1A83E0EC00EE869C"
-               BuildableName = "UITests.xctest"
-               BlueprintName = "UITests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E4D567211ADECE2700F1EFE7"
-               BuildableName = "ReadingListTests.xctest"
-               BlueprintName = "ReadingListTests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -92,47 +50,9 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F84B21D21A090F8100AAB793"
-               BuildableName = "FennecAurora.xctest"
-               BlueprintName = "ClientTests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-            <SkippedTests>
-               <Test
-                  Identifier = "FxAClientTests/testLoginSuccess()">
-               </Test>
-               <Test
-                  Identifier = "TokenServerClientTests">
-               </Test>
-            </SkippedTests>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D39FA15E1A83E0EC00EE869C"
-               BuildableName = "UITests.xctest"
-               BlueprintName = "UITests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E4D567211ADECE2700F1EFE7"
-               BuildableName = "ReadingListTests.xctest"
-               BlueprintName = "ReadingListTests"
-               ReferencedContainer = "container:Client.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E65C5BC31BEA4F6500D28BEF"
-               BuildableName = "NativeRefTests.xctest"
-               BlueprintName = "NativeRefTests"
+               BlueprintIdentifier = "EB8E9B351C7CB4E1003AA90E"
+               BuildableName = "UITests_brave.xctest"
+               BlueprintName = "UITests_brave"
                ReferencedContainer = "container:Client.xcodeproj">
             </BuildableReference>
          </TestableReference>

@@ -192,7 +192,7 @@ class BrowserLocationView: UIView {
             }
 
             if readerModeButton.hidden {
-                make.trailing.greaterThanOrEqualTo(self).offset(-BrowserLocationViewUX.LocationContentInset)
+                make.trailing.equalTo(self).inset(BrowserLocationViewUX.LocationContentInset)
             } else {
                 make.trailing.equalTo(self.readerModeButton.snp_leading)
             }
@@ -226,6 +226,16 @@ class BrowserLocationView: UIView {
     }
 
     private func updateTextWithURL() {
+        func urlShouldNotBeDisplayed(url: NSURL?) -> Bool {
+            guard let href = url?.absoluteString else { return true }
+            return href.hasPrefix("about:") || href.hasPrefix(WebServer.sharedInstance.base)
+        }
+
+        if urlShouldNotBeDisplayed(url) {
+            urlTextField.text = ""
+            return
+        }
+
         if let httplessURL = url?.absoluteDisplayString(), let baseDomain = url?.baseDomain() {
             // Highlight the base domain of the current URL.
             let attributedString = NSMutableAttributedString(string: httplessURL)

@@ -1,7 +1,8 @@
 *.mobileprovision
 xcuserdata/
 
-fastlane/scripts/upload.sh
+/fastlane/scripts/upload.sh
+/fastlane/README.md
 /firefox-ios-l10n
 # fastlane temporary profiling data
 /fastlane/report.xml
@@ -80,3 +81,4 @@ Client/Configuration
 Client/Info.plist
 /brave/xcconfig/.fabric-override.xcconfig
 /brave/xcconfig/.bundle-id.xcconfig
+/brave/Brave.entitlements

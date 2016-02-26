@@ -10,9 +10,12 @@ import XCGLogger
 import Breakpad
 #endif
 import MessageUI
+import WebImage
 
 
 private let log = Logger.browserLogger
+
+let LatestAppVersionProfileKey = "latestAppVersion"
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
@@ -27,11 +30,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     let appVersion = NSBundle.mainBundle().objectForInfoDictionaryKey("CFBundleShortVersionString") as! String
 
+    var openInBraveURL: NSURL? = nil
+
     func application(application: UIApplication, willFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
 #if BRAVE
         BraveApp.willFinishLaunching_begin()
 #endif
-
         // Hold references to willFinishLaunching parameters for delayed app launch
         self.application = application
         self.launchOptions = launchOptions
@@ -135,6 +139,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         adjustIntegration = AdjustIntegration(profile: profile)
 
+        // We need to check if the app is a clean install to use for
+        // preventing the What's New URL from appearing.
+        if getProfile(application).prefs.intForKey(IntroViewControllerSeenProfileKey) == nil {
+            getProfile(application).prefs.setString(AppInfo.appVersion, forKey: LatestAppVersionProfileKey)
+        }
         log.debug("Done with setting up the application.")
 
 #if BRAVE
@@ -170,7 +179,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if let profile = self.profile {
             return profile
         }
-        let p = BrowserProfile(localName: "profile", app: application)
+        let clearProfile = NSProcessInfo.processInfo().environment["MOZ_WIPE_PROFILE"] != nil
+        let p = BrowserProfile(localName: "profile", app: application, clear: clearProfile)
         self.profile = p
         return p
     }
@@ -225,9 +235,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 default: ()
                 }
             }
-            if let url = url,
-                   newURL = NSURL(string: url.unescape()) {
-                self.browserViewController.openURLInNewTab(newURL)
+
+            if let url = url, newURL = NSURL(string: url.unescape()) {
+                // If we are active then we can ask the BVC to open the new tab right away. Else we remember the
+                // URL and we open it in applicationDidBecomeActive.
+                if application.applicationState == .Active {
+                    if #available(iOS 9, *) {
+                        self.browserViewController.switchToPrivacyMode(isPrivate: false)
+                    }
+                    self.browserViewController.openURLInNewTab(newURL)
+                } else {
+                    openInBraveURL = newURL
+                }
                 return true
             }
         }
@@ -261,6 +280,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 quickActions.launchedShortcutItem = nil
             }
         }
+
+        // If we have a URL waiting to open, switch to non-private mode and open the URL.
+        if let url = openInBraveURL {
+            openInBraveURL = nil
+            // This needs to be scheduled so that the BVC is ready.
+            dispatch_async(dispatch_get_main_queue()) {
+                if #available(iOS 9, *) {
+                    self.browserViewController.switchToPrivacyMode(isPrivate: false)
+                }
+                self.browserViewController.switchToTabForURLOrOpen(url)
+            }
+        }
     }
 
     func applicationDidEnterBackground(application: UIApplication) {
@@ -276,6 +307,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             self.profile?.shutdown()
             application.endBackgroundTask(taskId)
         }
+
+        // Workaround for crashing in the background when <select> popovers are visible (rdar://24571325).
+        let jsBlurSelect = "if (document.activeElement && document.activeElement.tagName === 'SELECT') { document.activeElement.blur(); }"
+        tabManager.selectedTab?.webView?.evaluateJavaScript(jsBlurSelect, completionHandler: nil)
     }
 
     private func setUpWebServer(profile: Profile) {

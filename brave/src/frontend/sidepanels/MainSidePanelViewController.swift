@@ -24,8 +24,13 @@ class MainSidePanelViewController : SidePanelBaseViewController {
 
     let divider = UIView()
 
+    let shadow = UIImageView()
+
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        shadow.image = UIImage(named: "panel_shadow")
+        shadow.contentMode = .ScaleToFill
 
         tabTitleViewContainer.backgroundColor = UIColor.whiteColor()
         tabTitleView.textColor = self.view.tintColor
@@ -33,8 +38,8 @@ class MainSidePanelViewController : SidePanelBaseViewController {
         history.profile = getApp().profile
 
         containerView.addSubview(topButtonsView)
-
         containerView.addSubview(tabTitleViewContainer)
+
         tabTitleViewContainer.addSubview(tabTitleView)
         topButtonsView.addSubview(triangleView)
         topButtonsView.addSubview(bookmarksButton)
@@ -79,6 +84,10 @@ class MainSidePanelViewController : SidePanelBaseViewController {
         bookmarks.view.hidden = false
 
         containerView.bringSubviewToFront(topButtonsView)
+
+        if BraveUX.PanelShadowWidth > 0 {
+            containerView.addSubview(shadow)
+        }
     }
 
     let SEL_onClickSettingsButton = "onClickSettingsButton"
@@ -185,6 +194,13 @@ class MainSidePanelViewController : SidePanelBaseViewController {
         history.view.snp_remakeConstraints { make in
             make.left.right.bottom.equalTo(containerView)
             make.top.equalTo(tabTitleView.snp_bottom)
+        }
+
+        if BraveUX.PanelShadowWidth > 0 {
+            shadow.snp_remakeConstraints { make in
+                make.right.top.bottom.equalTo(containerView)
+                make.width.equalTo(BraveUX.PanelShadowWidth)
+            }
         }
     }
 

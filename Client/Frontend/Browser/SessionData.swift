@@ -10,6 +10,7 @@ class SessionData: NSObject, NSCoding {
     let currentPage: Int
     let urls: [NSURL]
     let lastUsedTime: Timestamp
+    var currentTitle: String = ""
 
     var jsonDictionary: [String: AnyObject] {
         return [
@@ -27,10 +28,11 @@ class SessionData: NSObject, NSCoding {
         - parameter urls:            The sequence of URLs in this tab's session history.
         - parameter lastUsedTime:    The last time this tab was modified.
     **/
-    init(currentPage: Int, urls: [NSURL], lastUsedTime: Timestamp) {
+    init(currentPage: Int, currentTitle: String?, urls: [NSURL], lastUsedTime: Timestamp) {
         self.currentPage = currentPage
         self.urls = urls
         self.lastUsedTime = lastUsedTime
+        self.currentTitle = currentTitle ?? ""
 
         assert(urls.count > 0, "Session has at least one entry")
         assert(currentPage > -urls.count && currentPage <= 0, "Session index is valid")
@@ -40,11 +42,13 @@ class SessionData: NSObject, NSCoding {
         self.currentPage = coder.decodeObjectForKey("currentPage") as? Int ?? 0
         self.urls = coder.decodeObjectForKey("urls") as? [NSURL] ?? []
         self.lastUsedTime = UInt64(coder.decodeInt64ForKey("lastUsedTime")) ?? NSDate.now()
+        self.currentTitle = coder.decodeObjectForKey("currentTitle") as? String ?? ""
     }
 
     func encodeWithCoder(coder: NSCoder) {
         coder.encodeObject(currentPage, forKey: "currentPage")
         coder.encodeObject(urls, forKey: "urls")
         coder.encodeInt64(Int64(lastUsedTime), forKey: "lastUsedTime")
+        coder.encodeObject(currentTitle, forKey: "currentTitle")
     }
 }

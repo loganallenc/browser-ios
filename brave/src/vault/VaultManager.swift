@@ -7,7 +7,7 @@ import Shared
 
 class VaultManager {
   static let prefKeyServerAddress = "braveVaultServerAddress"
-  static let prefKeyServerAddressDefaultValue = "https://vault-staging.brave.com"
+  static let prefKeyServerAddressDefaultValue = "" // set to vault.brave.com when hooking up
 
   static let notificationVaultSimpleResponse = "notificationVaultSimpleResponse"
 

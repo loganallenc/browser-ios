@@ -47,6 +47,7 @@ class LoginDetailViewController: UIViewController {
 
     private let LoginCellIdentifier = "LoginCell"
     private let DefaultCellIdentifier = "DefaultCellIdentifier"
+    private let SeparatorIdentifier = "SeparatorIdentifier"
 
     // Used to temporarily store a reference to the cell the user is showing the menu controller for
     private var menuControllerCell: LoginTableViewCell? = nil
@@ -73,6 +74,7 @@ class LoginDetailViewController: UIViewController {
 
         tableView.registerClass(LoginTableViewCell.self, forCellReuseIdentifier: LoginCellIdentifier)
         tableView.registerClass(UITableViewCell.self, forCellReuseIdentifier: DefaultCellIdentifier)
+        tableView.registerClass(SettingsTableSectionHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: SeparatorIdentifier)
 
         view.addSubview(tableView)
         tableView.snp_makeConstraints { make in
@@ -170,11 +172,10 @@ extension LoginDetailViewController: UITableViewDataSource {
             loginCell.style = .NoIconAndBothLabels
             loginCell.highlightedLabel.text = NSLocalizedString("website", tableName: "LoginManager", comment: "Title for website row in Login Detail View")
             loginCell.descriptionLabel.text = login.hostname
-            loginCell.enabledActions = [.Copy, .OpenAndFill]
             return loginCell
 
         case .LastModifiedSeparator:
-            let footer = SettingsTableSectionHeaderFooterView()
+            let footer = tableView.dequeueReusableHeaderFooterViewWithIdentifier(SeparatorIdentifier) as! SettingsTableSectionHeaderFooterView
             footer.titleAlignment = .Top
             let lastModified = NSLocalizedString("Last modified %@", tableName: "LoginManager", comment: "Footer label describing when the login was last modified with the timestamp as the parameter")
             let formattedLabel = String(format: lastModified, NSDate.fromMicrosecondTimestamp(login.timePasswordChanged).toRelativeTimeString())
@@ -237,7 +238,7 @@ extension LoginDetailViewController: UITableViewDelegate {
 
     func tableView(tableView: UITableView, shouldShowMenuForRowAtIndexPath indexPath: NSIndexPath) -> Bool {
         let item = InfoItem(rawValue: indexPath.row)!
-        if item == .PasswordItem || item == .WebsiteItem {
+        if item == .PasswordItem || item == .WebsiteItem || item == .UsernameItem {
             menuControllerCell = tableView.cellForRowAtIndexPath(indexPath) as? LoginTableViewCell
             return true
         }
@@ -256,11 +257,16 @@ extension LoginDetailViewController: UITableViewDelegate {
         }
 
         // Menu actions for Website
-        else if item == .WebsiteItem {
+        if item == .WebsiteItem {
             return action == MenuHelper.SelectorCopy || action == MenuHelper.SelectorOpenAndFill
-        } else {
-            return false
         }
+
+        // Menu actions for Username
+        if item == .UsernameItem {
+            return action == MenuHelper.SelectorCopy
+        }
+
+        return false
     }
 
     func tableView(tableView: UITableView, performAction action: Selector, forRowAtIndexPath indexPath: NSIndexPath, withSender sender: AnyObject?) {
@@ -367,14 +373,21 @@ extension LoginDetailViewController {
         editingInfo = false
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .Edit, target: self, action: "SELedit")
 
-        let username = usernameField?.text ?? ""
-        let password = passwordField?.text ?? ""
+        // We only care to update if we changed something
+        guard let username = usernameField?.text, password = passwordField?.text
+            where username != login.username || password != login.password else {
+            return
+        }
 
-        // Update login if there were any changes
-        if username != login.username || password != login.password {
-            // Update local, in-memory copy to view changes right away.
-            login = Login(guid: login.guid, hostname: login.hostname, username: username, password: password)
+        // Keep a copy of the old data in case we fail and need to revert back
+        let oldPassword = login.password
+        let oldUsername = login.username
+        login.update(password: password, username: username)
+
+        if login.isValid.isSuccess {
             profile.logins.updateLoginByGUID(login.guid, new: login, significant: true)
+        } else if let oldUsername = oldUsername {
+            login.update(password: oldPassword, username: oldUsername)
         }
     }
 
@@ -414,7 +427,7 @@ extension LoginDetailViewController {
 extension LoginDetailViewController: LoginTableViewCellDelegate {
 
     func didSelectOpenAndFillForCell(cell: LoginTableViewCell) {
-        guard let url = self.login.formSubmitURL?.asURL else {
+        guard let url = (self.login.formSubmitURL?.asURL ?? self.login.hostname.asURL) else {
             return
         }
 

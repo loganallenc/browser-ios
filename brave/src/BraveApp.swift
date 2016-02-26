@@ -80,7 +80,7 @@ class BraveApp {
 
         #if !TEST
         //  these quiet the logging from the core of fx ios
-        GCDWebServer.setLogLevel(5)
+       // GCDWebServer.setLogLevel(5)
         Logger.syncLogger.setup(.None)
         Logger.browserLogger.setup(.None)
         #endif
@@ -104,7 +104,7 @@ class BraveApp {
         if AppConstants.IsRunningTest {
             print("In test mode, bypass automatic vault registration.")
         } else {
-            VaultManager.userProfileInit()
+            // TODO hookup VaultManager.userProfileInit()
         }
 
         BraveApp.isSafeToRestoreTabs = BraveApp.getPref(kAppBootingIncompleteFlag) == nil
@@ -139,6 +139,7 @@ class BraveApp {
     @objc func memoryWarning(_: NSNotification) {
         NSURLCache.sharedURLCache().memoryCapacity = 0
         BraveApp.setupCacheDefaults()
+        getApp().tabManager.memoryWarning()
     }
 
     @objc func didEnterBackground(_: NSNotification) {

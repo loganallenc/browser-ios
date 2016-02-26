@@ -31,10 +31,16 @@ public class WebViewProgress
 
         let kvoLoading = "loading"
 
+        private var context = 0
+
         init(webView:BraveWebView) {
             self.webView = webView
             super.init()
-            webView.addObserver(self, forKeyPath: kvoLoading, options: .New, context: nil)
+            webView.addObserver(self, forKeyPath: kvoLoading, options: .New, context: &context)
+        }
+
+        deinit {
+            webView?.removeObserver(self, forKeyPath: kvoLoading, context: &context)
         }
 
         @objc func delayedCompletionCheck() {
@@ -49,7 +55,7 @@ public class WebViewProgress
         }
 
         @objc override func observeValueForKeyPath(keyPath: String?, ofObject object: AnyObject?, change: [String : AnyObject]?, context: UnsafeMutablePointer<Void>) {
-            guard let path = keyPath where path == "loading" else { return }
+            guard let path = keyPath where path == kvoLoading else { return }
             delay(0) { // ensure closure is on main thread
                 if !(self.webView?.loading ?? true) && self.webView?.estimatedProgress < 1.0 {
                     self.timer?.invalidate()

@@ -2,17 +2,17 @@
   "images" : [
     {
       "idiom" : "universal",
-      "filename" : "welcome_screens_5_imageb_3x_360-2.png",
+      "filename" : "dotsarrow_welcome.png",
       "scale" : "1x"
     },
     {
       "idiom" : "universal",
-      "filename" : "welcome_screens_5_imageb_3x_360-1.png",
+      "filename" : "dotsarrow_welcome@2x.png",
       "scale" : "2x"
     },
     {
       "idiom" : "universal",
-      "filename" : "welcome_screens_5_imageb_3x_360.png",
+      "filename" : "dotsarrow_welcome@3x.png",
       "scale" : "3x"
     }
   ],

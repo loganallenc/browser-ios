@@ -42,19 +42,8 @@ class BraveWebView: UIWebView {
 
     var estimatedProgress: Double = 0
     var title: String = ""
-    private var prevUrl: NSURL?
-    var URL: NSURL? {
-        willSet {
-            if !(URL?.absoluteString.hasPrefix("about:") ?? true) {
-                prevUrl = URL
-            }
-        }
-        didSet {
-            if let prevUrl = prevUrl where (URL?.absoluteString.hasPrefix("about:") ?? false) {
-                URL = prevUrl
-            }
-        }
-    }
+    var URL: NSURL?
+
     var internalIsLoadingEndedFlag: Bool = false;
     var knownFrameContexts = Set<NSObject>()
     static var containerWebViewForCallbacks = { return ContainerWebView() }()
@@ -84,6 +73,8 @@ class BraveWebView: UIWebView {
     }
 
     private func commonInit() {
+        print("webview init ")
+
         progress = WebViewProgress(parent: self)
 
         delegate = self
@@ -124,10 +115,13 @@ class BraveWebView: UIWebView {
         commonInit()
     }
 
+    func destroy() {
+        NSNotificationCenter.defaultCenter().removeObserver(self)
+        progress = nil
+    }
+
     deinit {
-        if let obs = progress?.loadingObserver {
-            removeObserver(obs, forKeyPath: obs.kvoLoading)
-        }
+        print("webview deinit \(title) ")
     }
 
     let internalProgressStartedNotification = "WebProgressStartedNotification"
@@ -146,12 +140,16 @@ class BraveWebView: UIWebView {
     }
 
     func loadingCompleted() {
+        if internalIsLoadingEndedFlag {
+            return
+        }
+        internalIsLoadingEndedFlag = true
+
         if let nd = navigationDelegate {
             BraveWebView.containerWebViewForCallbacks.legacyWebView = self
             nd.webView?(BraveWebView.containerWebViewForCallbacks, didFinishNavigation: nullWKNavigation)
         }
 
-        internalIsLoadingEndedFlag = true
         configuration.userContentController.injectJsIntoPage()
         NSNotificationCenter.defaultCenter().postNotificationName(BraveWebView.kNotificationWebViewLoadCompleteOrFailed, object: nil)
         LegacyUserContentController.injectJsIntoAllFrames(self, script: "document.body.style.webkitTouchCallout='none'")
@@ -308,12 +306,14 @@ extension BraveWebView: UIWebViewDelegate {
     func webView(webView: UIWebView,shouldStartLoadWithRequest request: NSURLRequest, navigationType: UIWebViewNavigationType ) -> Bool {
         #if DEBUG
             if var printedUrl = request.URL?.absoluteString {
-                if printedUrl.characters.count > 100 {
-                    printedUrl =  printedUrl.substringToIndex(printedUrl.startIndex.advancedBy(100)) + "..."
+                let maxLen = 100
+                if printedUrl.characters.count > maxLen {
+                    printedUrl =  printedUrl.substringToIndex(printedUrl.startIndex.advancedBy(maxLen)) + "..."
                 }
-                print("webview load: " + printedUrl)
+                //print("webview load: " + printedUrl)
             }
         #endif
+
         if AboutUtils.isAboutHomeURL(request.URL) {
             URL = request.URL
             progress?.completeProgress()
@@ -382,6 +382,7 @@ extension BraveWebView: UIWebViewDelegate {
 
     func webViewDidFinishLoad(webView: UIWebView) {
         assert(NSThread.isMainThread())
+        backForwardList.update(webView)
 
         let readyState = stringByEvaluatingJavaScriptFromString("document.readyState")?.lowercaseString
 

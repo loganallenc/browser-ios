@@ -375,7 +375,6 @@ class TabTrayController: UIViewController {
         addTabButton.setImage(UIImage(named: "add"), forState: .Normal)
         addTabButton.addTarget(self, action: "SELdidClickAddTab", forControlEvents: .TouchUpInside)
         addTabButton.accessibilityLabel = NSLocalizedString("Add Tab", comment: "Accessibility label for the Add Tab button in the Tab Tray.")
-        updateAddTabEnabledState()
 
         settingsButton = UIButton()
 //        settingsButton.setImage(UIImage(named: "settings"), forState: .Normal)
@@ -673,10 +672,6 @@ extension TabTrayController: TabManagerDelegate {
     func tabManager(tabManager: TabManager, didCreateTab tab: Browser) {
     }
 
-    func updateAddTabEnabledState() {
-        addTabButton.enabled = getApp().tabManager.tabCount < kMaxTabs
-    }
-
     func tabManager(tabManager: TabManager, didAddTab tab: Browser) {
         // Get the index of the added tab from it's set (private or normal)
         guard let index = tabsToDisplay.indexOf(tab) else { return }
@@ -697,8 +692,6 @@ extension TabTrayController: TabManagerDelegate {
                 }
             }
         })
-
-        updateAddTabEnabledState()
     }
 
     func tabManager(tabManager: TabManager, didRemoveTab tab: Browser) {
@@ -723,7 +716,6 @@ extension TabTrayController: TabManagerDelegate {
             }
         }
 #endif
-        updateAddTabEnabledState()
     }
 
     func tabManagerDidAddTabs(tabManager: TabManager) {
@@ -787,8 +779,7 @@ extension TabTrayController: TabCellDelegate {
 extension TabTrayController: SettingsDelegate {
     func settingsOpenURLInNewTab(url: NSURL) {
         let request = NSURLRequest(URL: url)
-        let tab = tabManager.addTab(request)
-        tabManager.selectTab(tab)
+        openNewTab(request)
     }
 }
 
@@ -814,6 +805,7 @@ private class TabManagerDataSource: NSObject, UICollectionViewDataSource {
         for (i, tab) in tabs.enumerate() {
             if tabToRemove === tab {
                 index = i
+                tab.deleteWebView()
                 break
             }
         }

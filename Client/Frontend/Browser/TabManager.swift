@@ -9,8 +9,6 @@ import Shared
 
 private let log = Logger.browserLogger
 
-let kMaxTabs = 9
-
 protocol TabManagerDelegate: class {
     func tabManager(tabManager: TabManager, didSelectedTabChange selected: Browser?, previous: Browser?)
     func tabManager(tabManager: TabManager, didCreateTab tab: Browser)
@@ -180,6 +178,8 @@ class TabManager : NSObject {
         for delegate in delegates {
             delegate.get()?.tabManager(self, didSelectedTabChange: tab, previous: previous)
         }
+
+        limitInMemoryTabs()
     }
 
     func expireSnackbars() {
@@ -208,10 +208,6 @@ class TabManager : NSObject {
 
     // This method is duplicated to hide the flushToDisk option from consumers.
     func addTab(request: NSURLRequest! = nil, configuration: WKWebViewConfiguration! = nil) -> Browser? {
-        if tabCount >= kMaxTabs {
-            print("Max tab count reached")
-            return nil
-        }
         return self.addTab(request, configuration: configuration, flushToDisk: true, zombie: false)
     }
 
@@ -237,6 +233,57 @@ class TabManager : NSObject {
         }
     }
 
+    func memoryWarning() {
+        for browser in tabs {
+            if browser.webView == nil {
+                continue
+            }
+
+            if selectedTab != browser {
+                browser.deleteWebView()
+            }
+        }
+    }
+
+    func limitInMemoryTabs() {
+        let maxInMemTabs = BraveUX.MaxTabsInMemory
+        if tabs.count < maxInMemTabs {
+            return
+        }
+
+        var webviews = 0
+        for browser in tabs {
+            if browser.webView != nil {
+                webviews++
+            }
+        }
+        if webviews < maxInMemTabs {
+            return
+        }
+
+        print("webviews \(webviews)")
+
+        var oldestTime: Timestamp = NSDate.now()
+        var oldestBrowser: Browser? = nil
+        for browser in tabs {
+            if browser.webView == nil {
+                continue
+            }
+            if let t = browser.lastExecutedTime where t < oldestTime {
+                oldestTime = t
+                oldestBrowser = browser
+                print("\(browser.title): \(t)")
+            }
+        }
+        if let browser = oldestBrowser {
+            if selectedTab != browser {
+                browser.deleteWebView()
+            } else {
+                print("limitInMemoryTabs: tab to delete is selected!")
+            }
+        }
+    }
+
     @available(iOS 9, *)
     private func addTab(request: NSURLRequest? = nil, var configuration: WKWebViewConfiguration! = nil, flushToDisk: Bool, zombie: Bool, isPrivate: Bool) -> Browser {
         assert(NSThread.isMainThread())
@@ -244,7 +291,7 @@ class TabManager : NSObject {
         if configuration == nil {
             configuration = isPrivate ? privateConfiguration : self.configuration
         }
-        
+
         let tab = Browser(configuration: configuration, isPrivate: isPrivate)
         configureTab(tab, request: request, flushToDisk: flushToDisk, zombie: zombie)
         return tab
@@ -259,6 +306,8 @@ class TabManager : NSObject {
     }
 
     func configureTab(tab: Browser, request: NSURLRequest?, flushToDisk: Bool, zombie: Bool) {
+        limitInMemoryTabs()
+
         for delegate in delegates {
             delegate.get()?.tabManager(self, didCreateTab: tab)
         }
@@ -450,7 +499,7 @@ extension TabManager {
                 let forwardList = browser.webView?.backForwardList.forwardList ?? []
                 let urls = (backList + [currentItem] + forwardList).map { $0.URL }
                 let currentPage = -forwardList.count
-                self.sessionData = SessionData(currentPage: currentPage, urls: urls, lastUsedTime: browser.lastExecutedTime ?? NSDate.now())
+                self.sessionData = SessionData(currentPage: currentPage, currentTitle: browser.title, urls: urls, lastUsedTime: browser.lastExecutedTime ?? NSDate.now())
             } else {
                 self.sessionData = browser.sessionData
             }
@@ -461,11 +510,7 @@ extension TabManager {
             self.screenshotUUID = coder.decodeObjectForKey("screenshotUUID") as? NSUUID
             self.isSelected = coder.decodeBoolForKey("isSelected")
             self.title = coder.decodeObjectForKey("title") as? String
-#if !BRAVE
             self.isPrivate = coder.decodeBoolForKey("isPrivate")
-#else
-            self.isPrivate = false // On app start, no private tabs
-#endif
         }
 
         func encodeWithCoder(coder: NSCoder) {
@@ -560,6 +605,7 @@ extension TabManager {
             } else {
                 tab = self.addTab(flushToDisk: false, zombie: true)
             }
+            tab.lastExecutedTime = savedTab.sessionData?.lastUsedTime
 
             // Set the UUID for the tab, asynchronously fetch the UIImage, then store
             // the screenshot in the tab as long as long as a newer one hasn't been taken.

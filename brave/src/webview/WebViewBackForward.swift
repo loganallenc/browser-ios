@@ -29,12 +29,13 @@ class WebViewBackForwardList {
     var currentIndex: Int = 0
     var backForwardList: [LegacyBackForwardListItem] = []
     weak var webView: BraveWebView?
+    var cachedHistoryStringLength = 0
+    var cachedHistoryStringPositionOfCurrentMarker = -1
 
     init(webView: BraveWebView) {
         self.webView = webView
     }
 
-    var cachedHistoryStringLength = 0
 
     private func isSpecial(_url: NSURL?) -> Bool {
         guard let url = _url else { return false }
@@ -46,32 +47,41 @@ class WebViewBackForwardList {
     }
 
     func update(webview: UIWebView) {
-        backForwardList = []
+        let currIndicator = ">>> "
         guard let obj = webview.valueForKeyPath("documentView.webView.backForwardList") else { return }
         let history = obj.description
         let nsHistory = history as NSString
 
-        if cachedHistoryStringLength > 0 &&
-            cachedHistoryStringLength == nsHistory.length {
-                return;
+        if cachedHistoryStringLength > 0 && cachedHistoryStringLength == nsHistory.length &&
+            cachedHistoryStringPositionOfCurrentMarker > -1 &&
+            nsHistory.substringWithRange(NSMakeRange(cachedHistoryStringPositionOfCurrentMarker, currIndicator.characters.count)) == currIndicator {
+                // the history is unchanged (based on this guesstimate)
+                return
         }
+
         cachedHistoryStringLength = nsHistory.length
+
+        backForwardList = []
 
         let regex = try! NSRegularExpression(pattern:"\\d+\\) +<WebHistoryItem.+> (http.+) ", options: [])
         let result = regex.matchesInString(history, options: [], range: NSMakeRange(0, history.characters.count))
         var i = 0
         var foundCurrent = false
         for match in result {
-            guard let url = NSURL(string: nsHistory.substringWithRange(match.rangeAtIndex(1))) else { continue }
+            var extractedUrl = nsHistory.substringWithRange(match.rangeAtIndex(1))
+            let parts = extractedUrl.componentsSeparatedByString(" ")
+            if parts.count > 1 {
+                extractedUrl = parts[0]
+            }
+            guard let url = NSURL(string: extractedUrl) else { continue }
             let item = LegacyBackForwardListItem(url: url)
             backForwardList.append(item)
 
-            let currIndicator = ">>>"
             let rangeStart = match.range.location - currIndicator.characters.count
-            if rangeStart > -1 &&
-                nsHistory.substringWithRange(NSMakeRange(match.range.location - 4, 3)) == currIndicator {
-                    currentIndex = i
-                    foundCurrent = true
+            if rangeStart > -1 && nsHistory.substringWithRange(NSMakeRange(rangeStart, currIndicator.characters.count)) == currIndicator {
+                currentIndex = i
+                foundCurrent = true
+                cachedHistoryStringPositionOfCurrentMarker = rangeStart
             }
             i++
         }

@@ -184,6 +184,5 @@ class BraveBrowserBottomToolbar : BrowserToolbar {
 
     override func updatePageStatus(isWebPage isWebPage: Bool) {
         super.updatePageStatus(isWebPage: isWebPage)
-        addTabButton.enabled = getApp().tabManager.tabCount < kMaxTabs
     }
 }

@@ -156,7 +156,7 @@ JSCallbackBlock blockFactory(NSString *handlerName, id<WKScriptMessageHandler> h
 
   [frames enumerateObjectsUsingBlock:^(id frame, NSUInteger idx, BOOL *stop ) {
     JSContext *context = [frame valueForKeyPath:@"javaScriptContext"];
-    if (! [contexts containsObject:[NSNumber numberWithUnsignedInteger:context.hash]]) {
+    if (context && ![contexts containsObject:[NSNumber numberWithUnsignedInteger:context.hash]]) {
       [result addObject:context];
     }
   }];

@@ -8,7 +8,7 @@ if [  -z $1 ] ; then
   echo DevelopmentTeam = KL8N8XSYF4 >> xcconfig/.bundle-id.xcconfig
 fi
 
-sed -e 's/BUNDLE_ID_PLACEHOLDER/$app_id/' Brave.entitlements.template > Brave.entitlements
+sed -e "s/BUNDLE_ID_PLACEHOLDER/$app_id/" Brave.entitlements.template > Brave.entitlements
 
 # Replace the removed xcconfigs with ours
 (cd ../Client && rm -rf Configuration &&  ln -sfn ../brave/xcconfig Configuration)

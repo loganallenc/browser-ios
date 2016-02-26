@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import GCDWebServers
 import Storage
 import WebKit
 
@@ -43,6 +44,13 @@ extension KIFUITestActor {
         } catch {
             return false
         }
+    }
+
+    func viewExistsWithLabelPrefixedBy(prefix: String) -> Bool {
+        let element = UIApplication.sharedApplication().accessibilityElementMatchingBlock { element in
+            return element.accessibilityLabel?.hasPrefix(prefix) ?? false
+        }
+        return element != nil
     }
 
     /// Waits for and returns a view with the given accessibility value.
@@ -168,6 +176,15 @@ extension KIFUITestActor {
         return found
     }
 
+    func hasWebViewTitleWithPrefix(text: String) -> Bool {
+        let webView = getWebViewWithKIFHelper()
+        var stepResult = KIFTestStepResult.Wait
+        let title = webView.stringByEvaluatingJavaScriptFromString("document.title")
+        stepResult = title?.startsWith(text) ?? false ? KIFTestStepResult.Success : KIFTestStepResult.Failure
+        runBlock { _ in return stepResult }
+        return stepResult == KIFTestStepResult.Success
+    }
+
     private func getWebViewWithKIFHelper() -> UIWebView {
         let webView = waitForViewWithAccessibilityLabel("Web content") as! UIWebView
 
@@ -178,9 +195,9 @@ extension KIFUITestActor {
 
         var stepResult = KIFTestStepResult.Wait
 
-        var result = webView.stringByEvaluatingJavaScriptFromString("typeof KIFHelper")
+        let result = webView.stringByEvaluatingJavaScriptFromString("typeof KIFHelper")
         if result == "undefined" {
-                let bundle = NSBundle(forClass: NavigationTests.self)
+                let bundle = NSBundle(forClass: SessionRestoreTests.self)
                 let path = bundle.pathForResource("KIFHelper", ofType: "js")!
                 let source = try! NSString(contentsOfFile: path, encoding: NSUTF8StringEncoding)
                 webView.stringByEvaluatingJavaScriptFromString(source as String)
@@ -324,7 +341,7 @@ class SimplePageServer {
             return GCDWebServerDataResponse(data: img, contentType: "image/png")
         }
 
-        for page in ["findPage", "noTitle", "readablePage"] {
+        for page in ["findPage", "noTitle", "readablePage", "JSPrompt"] {
             webServer.addHandlerForMethod("GET", path: "/\(page).html", requestClass: GCDWebServerRequest.self) { (request) -> GCDWebServerResponse! in
                 return GCDWebServerDataResponse(HTML: self.getPageData(page))
             }
